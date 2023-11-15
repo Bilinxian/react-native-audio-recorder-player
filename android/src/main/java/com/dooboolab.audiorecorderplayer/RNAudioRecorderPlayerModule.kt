@@ -43,7 +43,7 @@ class RNAudioRecorderPlayerModule(private val reactContext: ReactApplicationCont
                 // https://developer.android.com/about/versions/11/privacy/storage#permissions-target-11
                 if (Build.VERSION.SDK_INT < 29 &&
                         (ActivityCompat.checkSelfPermission(reactContext, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
-                        ActivityCompat.checkSelfPermission(reactContext, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED))  {
+                                ActivityCompat.checkSelfPermission(reactContext, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)) {
                     ActivityCompat.requestPermissions((currentActivity)!!, arrayOf(
                             Manifest.permission.RECORD_AUDIO,
                             Manifest.permission.WRITE_EXTERNAL_STORAGE), 0)
@@ -98,12 +98,12 @@ class RNAudioRecorderPlayerModule(private val reactContext: ReactApplicationCont
                         if (mediaRecorder != null) {
                             maxAmplitude = mediaRecorder!!.maxAmplitude
                         }
-                        var dB = -160.0
-                        val maxAudioSize = 32767.0
+                        var dB = 0.0
                         if (maxAmplitude > 0) {
-                            dB = 20 * log10(maxAmplitude / maxAudioSize)
+                            dB = maxAmplitude / 32767.0
+//                            dB = 20 * log10(level)
                         }
-                        obj.putInt("currentMetering", dB.toInt())
+                        obj.putDouble("currentMetering", dB)
                     }
                     sendEvent(reactContext, "rn-recordback", obj)
                     recordHandler!!.postDelayed(this, subsDurationMillis.toLong())
@@ -171,7 +171,7 @@ class RNAudioRecorderPlayerModule(private val reactContext: ReactApplicationCont
             mediaRecorder = null
             promise.resolve("file:///$audioFileURL")
         } catch (stopException: RuntimeException) {
-            stopException.message?.let { Log.d(tag,"" + it) }
+            stopException.message?.let { Log.d(tag, "" + it) }
             promise.reject("stopRecord", stopException.message)
         }
     }
