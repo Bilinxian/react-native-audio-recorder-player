@@ -155,15 +155,22 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
         mediaRecorder.setOutputFile(audioFileURL);
 
         try {
-            mediaRecorder.prepare();
-            totalPausedRecordTime = 0L;
             if (audioSet != null && useBluetooth && audioManager.isBluetoothScoAvailableOffCall()) {
                 audioManager.requestAudioFocus(afChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
-                registerReceiver(promise);
                 audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+                if (audioManager.isBluetoothScoOn()) {
+                    audioManager.stopBluetoothSco();
+                    audioManager.setBluetoothScoOn(false);
+                }
+                mediaRecorder.prepare();
+                totalPausedRecordTime = 0L;
+                registerReceiver(promise);
                 audioManager.startBluetoothSco();
+                audioManager.setBluetoothScoOn(true);
                 return;
             }
+            mediaRecorder.prepare();
+            totalPausedRecordTime = 0L;
             startRecorder(promise);
 
         } catch (Exception e) {
@@ -196,25 +203,15 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
                 int state = intent.getIntExtra(AudioManager.EXTRA_SCO_AUDIO_STATE, -1);
                 Log.e(tag, "state" + state);
                 if (AudioManager.SCO_AUDIO_STATE_CONNECTED == state) {
-
-                    audioManager.setBluetoothScoOn(true);
-//                    audioManager.setMicrophoneMute(false);
-
                     startRecorder(promise);
                     reactContext.unregisterReceiver(this);
-//                    audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
-                    return;
+
                 }
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                audioManager.startBluetoothSco();
             }
         };
         IntentFilter filter = new IntentFilter(AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED);
         reactContext.registerReceiver(receiver, filter);
+
     }
 
     private void startRecorder(Promise promise) {
@@ -287,7 +284,16 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
 
     @ReactMethod
     public void stopRecorder(Promise promise) {
+        if (audioManager.isBluetoothScoOn()) {
+//                audioManager.abandonAudioFocus(afChangeListener);
+//
+            audioManager.stopBluetoothSco();
+            audioManager.setBluetoothScoOn(false);
 
+//                audioManager.setBluetoothA2dpOn(true);
+//                audioManager.setStreamSolo(AudioManager.STREAM_MUSIC, true);
+//                audioManager.setRouting(AudioManager.MODE_NORMAL, AudioManager.ROUTE_BLUETOOTH_A2DP, AudioManager.ROUTE_BLUETOOTH);
+        }
 
         if (recorderRunnable != null) {
             recordHandler.removeCallbacks(recorderRunnable);
@@ -303,15 +309,7 @@ public class RNAudioRecorderPlayerModule extends ReactContextBaseJavaModule impl
             mediaRecorder.reset();
             mediaRecorder.release();
             mediaRecorder = null;
-            if (audioManager.isBluetoothScoOn()) {
-                audioManager.abandonAudioFocus(afChangeListener);
-                audioManager.setBluetoothScoOn(false);
 
-                audioManager.stopBluetoothSco();
-//                audioManager.setBluetoothA2dpOn(true);
-//                audioManager.setStreamSolo(AudioManager.STREAM_MUSIC, true);
-//                audioManager.setRouting(AudioManager.MODE_NORMAL, AudioManager.ROUTE_BLUETOOTH_A2DP, AudioManager.ROUTE_BLUETOOTH);
-            }
 
             promise.resolve("file://" + audioFileURL);
 
